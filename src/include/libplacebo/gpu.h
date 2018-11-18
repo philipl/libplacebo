@@ -118,6 +118,7 @@ struct pl_gpu {
     struct pl_glsl_desc glsl;        // GLSL version supported by this GPU
     struct pl_gpu_limits limits;     // physical device limits
     pl_handle_types mem_handle_caps; // supported handle types for external memory
+    pl_handle_types sem_handle_caps; // supported handle types for external semaphores
     // Note: Every GPU must support at least one of PL_GPU_CAP_INPUT_VARIABLES
     // or uniform buffers (limits.max_ubo_size > 0).
 
@@ -901,6 +902,44 @@ struct pl_pass_run_params {
 
 // Execute a render pass.
 void pl_pass_run(const struct pl_gpu *gpu, const struct pl_pass_run_params *params);
+
+// Parameters that define a `pl_sync`
+struct pl_sync_params {
+    // A bitmask of all handle types you want to receive. (Required)
+    // This *must* be a set to one of `pl_gpu.sem_handle_caps`.
+    pl_handle_types ext_handle;
+};
+
+// A generic semaphore pair intended for use with an external API.
+// This is not required when solely using libplacebo API functions, as all
+// required synchronisation is done internally.
+//
+// The semaphores are always managed as a pair because we must synchronise
+// access to a shared resource in both directions.
+struct pl_sync {
+    struct pl_sync_params params;
+    void *priv;
+
+    // If the `pl_sync` is destroyed (`pl_sync_destroy`), the handles
+    // become undefined as do any external API objects imported from them.
+
+    // This handle is waited on from the external API to indicate when it is
+    // safe for it to access the shared resource
+    union pl_gpu_handle wait_handle;
+    // This handle is signalled from the external API to indicate it has
+    // finished accessing the shared resource
+    union pl_gpu_handle signal_handle;
+};
+
+// Create a semaphore pair that can be imported for use by an external API.
+// Returns NULL on failure.
+const struct pl_sync *pl_sync_create(const struct pl_gpu *gpu,
+                                     const struct pl_sync_params *params);
+
+// Destroy a `pl_sync`. Destroying a semaphore pair that has been queued to be
+// waited on but not yet evaluated is considered an error.
+void pl_sync_destroy(const struct pl_gpu *gpu,
+                     const struct pl_sync **sync);
 
 // This is semantically a no-op, but it provides a hint that you want to flush
 // any partially queued up commands and begin execution. There is normally no

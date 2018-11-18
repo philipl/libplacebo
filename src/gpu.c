@@ -1329,3 +1329,22 @@ struct pl_pass_params pl_pass_params_copy(void *tactx,
 
     return new;
 }
+
+const struct pl_sync *pl_sync_create(const struct pl_gpu *gpu,
+                                     const struct pl_sync_params *params)
+{
+    pl_assert(params->ext_handle);
+    pl_assert(params->ext_handle & gpu->sem_handle_caps);
+    pl_assert((params->ext_handle & (params->ext_handle - 1)) == 0);
+    return gpu->impl->sync_create(gpu, params);
+}
+
+void pl_sync_destroy(const struct pl_gpu *gpu,
+                     const struct pl_sync **sync)
+{
+    if (!*sync)
+        return;
+
+    gpu->impl->sync_destroy(gpu, *sync);
+    *sync = NULL;
+}

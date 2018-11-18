@@ -212,6 +212,18 @@ static void vk_setup_formats(struct pl_gpu *gpu)
     pl_gpu_sort_formats(gpu);
 }
 
+static pl_handle_types vk_semaphore_handle_caps(struct vk_ctx *vk)
+{
+    pl_handle_types ret = 0;
+
+#if VK_HAVE_UNIX
+    if (vk->vkGetSemaphoreFdKHR)
+        ret |= PL_HANDLE_FD;
+#endif
+
+    return ret;
+}
+
 const struct pl_gpu *pl_gpu_create_vk(struct vk_ctx *vk)
 {
     pl_assert(vk->dev);
@@ -230,6 +242,7 @@ const struct pl_gpu *pl_gpu_create_vk(struct vk_ctx *vk)
 
     gpu->glsl = p->spirv->glsl;
     gpu->mem_handle_caps = vk_malloc_handle_caps(p->alloc);
+    gpu->sem_handle_caps = vk_semaphore_handle_caps(vk);
     gpu->limits = (struct pl_gpu_limits) {
         .max_tex_1d_dim    = vk->limits.maxImageDimension1D,
         .max_tex_2d_dim    = vk->limits.maxImageDimension2D,
