@@ -739,7 +739,6 @@ static const struct pl_tex *vk_tex_create(const struct pl_gpu *gpu,
 
     if (params->ext_handles) {
         tex->handles = tex_vk->mem.handles;
-        tex->handle_offset = tex_vk->mem.offset;
         // Texture is not initially exported;
         // pl_vulkan_hold must be used to export it.
     }
@@ -1271,7 +1270,6 @@ static const struct pl_buf *vk_buf_create(const struct pl_gpu *gpu,
 
     if (params->ext_handles) {
         buf->handles = buf_vk->slice.mem.handles;
-        buf->handle_offset = buf_vk->slice.mem.offset;
         buf_vk->exported = true;
     }
 

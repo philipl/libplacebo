@@ -60,10 +60,23 @@ enum {
     PL_HANDLE_FD    = (1 << 0), // `int fd` for POSIX-style APIs
 };
 
+// A wrapper for the handle(s) used to communicate the shared resource
+// externally. These handles are owned by the `pl_gpu` - if a user wishes to
+// use them in a way that takes over ownership (e.g. importing into some APIs),
+// they must clone the handle before doing so (e.g. using `dup` for fds).
 struct pl_gpu_handle {
-    size_t size;    // the total size of the memory referenced by this handle
     // List of all requested handles:
     int fd;         // PL_HANDLE_FD
+};
+
+// When a handle references memory, we also need to communicate the size of the
+// underlying memory region and the offset of the object within it.
+struct pl_gpu_mem_handle {
+    struct pl_gpu_handle handle; // The handle itself
+    size_t size;                 // the total size of the memory referenced by
+                                 // this handle
+    size_t offset;               // the offset of the object within the
+                                 // referenced memory
 };
 
 // Structure defining the physical limits of this GPU instance. If a limit is
@@ -269,17 +282,10 @@ struct pl_tex {
     struct pl_tex_params params;
     void *priv;
 
-    // When using external memory handles, this contains the handles, plus the
-    // offset of this paricular `pl_tex` within the handle. These handles are
-    // owned by the `pl_gpu` - if a user wishes to use them in a way that takes
-    // over ownership (e.g. importing into some APIs), they must clone the
-    // handle before doing so (e.g. using `dup` for fds).
-    //
     // If the `pl_tex` is destroyed (pl_tex_destroy), the contents of the
     // memory associated with these handles become undefined - including the
     // contents of any external API objects imported from them.
-    struct pl_gpu_handle handles;
-    size_t handle_offset;
+    struct pl_gpu_mem_handle handles;
 };
 
 // Create a texture (with undefined contents). Returns NULL on failure. This is
@@ -444,17 +450,10 @@ struct pl_buf {
     uint8_t *data; // for persistently mapped buffers, points to the first byte
     void *priv;
 
-    // When using external memory handles, this contains the handles, plus the
-    // offset of this paricular `pl_buf` within the handle. These handles are
-    // owned by the `pl_gpu` - if a user wishes to use them in a way that takes
-    // over ownership (e.g. importing into some APIs), they must clone the
-    // handle before doing so (e.g. using `dup` for fds).
-    //
     // If the `pl_buf` is destroyed (pl_buf_destroy), the contents of the
     // memory associated with these handles become undefined - including the
     // contents of any external API objects imported from them.
-    struct pl_gpu_handle handles;
-    size_t handle_offset;
+    struct pl_gpu_mem_handle handles;
 };
 
 // Create a buffer. The type of buffer depends on the parameters. The buffer

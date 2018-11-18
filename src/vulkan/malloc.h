@@ -33,7 +33,7 @@ struct vk_memslice {
     VkDeviceMemory vkmem;
     VkDeviceSize offset;
     VkDeviceSize size;
-    struct pl_gpu_handle handles;
+    struct pl_gpu_mem_handle handles;
     void *priv;
 };
 

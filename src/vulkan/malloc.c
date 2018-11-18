@@ -145,9 +145,6 @@ static struct vk_slab *slab_alloc(struct vk_malloc *ma, struct vk_heap *heap,
     struct vk_slab *slab = talloc_ptrtype(NULL, slab);
     *slab = (struct vk_slab) {
         .size = size,
-        .handles = {
-            .size = size,
-        },
     };
 
     TARRAY_APPEND(slab, slab->regions, slab->num_regions, (struct vk_region) {
@@ -476,11 +473,16 @@ static bool slice_heap(struct vk_malloc *ma, struct vk_heap *heap, size_t size,
 
     struct vk_region reg = slab->regions[index];
     TARRAY_REMOVE_AT(slab->regions, slab->num_regions, index);
+    VkDeviceSize offset = PL_ALIGN(reg.start, alignment);
     *out = (struct vk_memslice) {
         .vkmem = slab->mem,
-        .offset = PL_ALIGN(reg.start, alignment),
+        .offset = offset,
         .size = size,
-        .handles = slab->handles,
+        .handles = {
+            .handle = slab->handles,
+            .offset = offset,
+            .size = slab->size,
+        },
         .priv = slab,
     };
 
