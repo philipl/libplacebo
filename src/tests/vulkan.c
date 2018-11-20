@@ -2,7 +2,7 @@
 
 static void vulkan_tests(const struct pl_gpu *gpu)
 {
-    if (gpu->handle_caps & PL_HANDLE_FD) {
+    if (gpu->mem_handle_caps & PL_HANDLE_FD) {
         const struct pl_buf *buf = pl_buf_create(gpu, &(struct pl_buf_params) {
             .type = PL_BUF_TEX_TRANSFER,
             .size = 1024,

@@ -101,10 +101,10 @@ struct pl_gpu {
     struct pl_gpu_fns *impl; // the underlying implementation (unique per GPU)
     void *priv;
 
-    pl_gpu_caps caps;            // PL_GPU_CAP_* bit field
-    struct pl_glsl_desc glsl;    // GLSL version supported by this GPU
-    struct pl_gpu_limits limits; // physical device limits
-    pl_handle_types handle_caps; // supported handle types for external memory
+    pl_gpu_caps caps;                // PL_GPU_CAP_* bit field
+    struct pl_glsl_desc glsl;        // GLSL version supported by this GPU
+    struct pl_gpu_limits limits;     // physical device limits
+    pl_handle_types mem_handle_caps; // supported handle types for external memory
     // Note: Every GPU must support at least one of PL_GPU_CAP_INPUT_VARIABLES
     // or uniform buffers (limits.max_ubo_size > 0).
 
@@ -239,7 +239,7 @@ struct pl_tex_params {
 
     // Setting this indicates that a texture should be shared with external
     // APIs, and is treated as a bit mask of all handle types you want to
-    // receive. This *must* be a subset of `pl_gpu.handle_caps`.
+    // receive. This *must* be a subset of `pl_gpu.mem_handle_caps`.
     pl_handle_types ext_handles;
 
     // If non-NULL, the texture will be created with these contents. Using
@@ -421,7 +421,7 @@ struct pl_buf_params {
 
     // Setting this indicates that a buffer should be shared with external
     // APIs, and is treated as a bit mask of all handle types you want to
-    // receive. This *must* be a subset of `pl_gpu.handle_caps`.
+    // receive. This *must* be a subset of `pl_gpu.mem_handle_caps`.
     pl_handle_types ext_handles;
 
     // If non-NULL, the buffer will be created with these contents. Otherwise,

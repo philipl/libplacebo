@@ -229,7 +229,7 @@ const struct pl_gpu *pl_gpu_create_vk(struct vk_ctx *vk)
         goto error;
 
     gpu->glsl = p->spirv->glsl;
-    gpu->handle_caps = vk_malloc_handle_caps(p->alloc);
+    gpu->mem_handle_caps = vk_malloc_handle_caps(p->alloc);
     gpu->limits = (struct pl_gpu_limits) {
         .max_tex_1d_dim    = vk->limits.maxImageDimension1D,
         .max_tex_2d_dim    = vk->limits.maxImageDimension2D,
