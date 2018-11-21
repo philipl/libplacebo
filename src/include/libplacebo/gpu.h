@@ -60,23 +60,23 @@ enum {
     PL_HANDLE_FD    = (1 << 0), // `int fd` for POSIX-style APIs
 };
 
-// A wrapper for the handle(s) used to communicate the shared resource
-// externally. These handles are owned by the `pl_gpu` - if a user wishes to
-// use them in a way that takes over ownership (e.g. importing into some APIs),
+// A wrapper for the handle used to communicate the shared resource
+// externally. This handle is owned by the `pl_gpu` - if a user wishes to
+// use in in a way that takes over ownership (e.g. importing into some APIs),
 // they must clone the handle before doing so (e.g. using `dup` for fds).
-struct pl_gpu_handle {
-    // List of all requested handles:
+union pl_gpu_handle {
     int fd;         // PL_HANDLE_FD
 };
 
 // When a handle references memory, we also need to communicate the size of the
 // underlying memory region and the offset of the object within it.
 struct pl_gpu_mem_handle {
-    struct pl_gpu_handle handle; // The handle itself
-    size_t size;                 // the total size of the memory referenced by
-                                 // this handle
-    size_t offset;               // the offset of the object within the
-                                 // referenced memory
+    // The handle itself
+    union pl_gpu_handle handle;
+    // The total size of the memory referenced by this handle
+    size_t size;
+    // The offset of the object within the referenced memory
+    size_t offset;
 };
 
 // Structure defining the physical limits of this GPU instance. If a limit is
@@ -251,9 +251,8 @@ struct pl_tex_params {
     enum pl_tex_address_mode address_mode;
 
     // Setting this indicates that a texture should be shared with external
-    // APIs, and is treated as a bit mask of all handle types you want to
-    // receive. This *must* be a subset of `pl_gpu.mem_handle_caps`.
-    pl_handle_types ext_handles;
+    // APIs, If set, this *must* be set to one of `pl_gpu.mem_handle_caps`.
+    pl_handle_types ext_handle;
 
     // If non-NULL, the texture will be created with these contents. Using
     // this does *not* require setting host_writable. Otherwise, the initial
@@ -283,9 +282,9 @@ struct pl_tex {
     void *priv;
 
     // If the `pl_tex` is destroyed (pl_tex_destroy), the contents of the
-    // memory associated with these handles become undefined - including the
+    // memory associated with this handle become undefined - including the
     // contents of any external API objects imported from them.
-    struct pl_gpu_mem_handle handles;
+    struct pl_gpu_mem_handle handle;
 };
 
 // Create a texture (with undefined contents). Returns NULL on failure. This is
@@ -426,9 +425,8 @@ struct pl_buf_params {
     const struct pl_fmt *format;
 
     // Setting this indicates that a buffer should be shared with external
-    // APIs, and is treated as a bit mask of all handle types you want to
-    // receive. This *must* be a subset of `pl_gpu.mem_handle_caps`.
-    pl_handle_types ext_handles;
+    // APIs, If so, this *must* be set to one of `pl_gpu.mem_handle_caps`.
+    pl_handle_types ext_handle;
 
     // If non-NULL, the buffer will be created with these contents. Otherwise,
     // the initial data is undefined. Using this does *not* require setting
@@ -451,9 +449,9 @@ struct pl_buf {
     void *priv;
 
     // If the `pl_buf` is destroyed (pl_buf_destroy), the contents of the
-    // memory associated with these handles become undefined - including the
+    // memory associated with this handle become undefined - including the
     // contents of any external API objects imported from them.
-    struct pl_gpu_mem_handle handles;
+    struct pl_gpu_mem_handle handle;
 };
 
 // Create a buffer. The type of buffer depends on the parameters. The buffer
@@ -475,7 +473,7 @@ const struct pl_buf *pl_buf_create(const struct pl_gpu *gpu,
 //
 // Note: Due to its unpredictability, it's not allowed to use this with
 // `params->initial_data` being set. Similarly, it's not allowed on a buffer
-// with `params->ext_handles`. since this may invalidate the corresponding
+// with `params->ext_handle`. since this may invalidate the corresponding
 // external API's handle. Conversely, it *is* allowed on a buffer with
 // `params->host_mapped`, and the corresponding `buf->data` pointer *may*
 // change as a result of doing so.
@@ -496,7 +494,7 @@ bool pl_buf_read(const struct pl_gpu *gpu, const struct pl_buf *buf,
                  size_t buf_offset, void *dest, size_t size);
 
 // Initiates a buffer export operation, allowing a buffer to be accessed by an
-// external API. This is only valid for buffers with `params->ext_handles`.
+// external API. This is only valid for buffers with `params->ext_handle`.
 // Calling this twice in a row is a harmless no-op. Returns whether successful.
 //
 // There is no corresponding "buffer import" operation, the next libplacebo

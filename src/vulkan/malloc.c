@@ -66,7 +66,8 @@ struct vk_slab {
     struct vk_region *regions;
     int num_regions;
     // optional, depends on the memory type:
-    struct pl_gpu_handle handles; // handles associated with this device memory
+    union pl_gpu_handle handle; // handle associated with this device memory
+    pl_handle_types handle_type; // the type of the handle
     VkBuffer buffer;      // buffer spanning the entire slab
     void *data;           // mapped memory corresponding to `mem`
 };
@@ -79,7 +80,7 @@ struct vk_heap {
     VkBufferUsageFlags usage;    // the buffer usage type (or 0)
     VkMemoryPropertyFlags flags; // the memory type flags (or 0)
     uint32_t typeBits;           // the memory type index requirements (or 0)
-    pl_handle_types handles;     // handles available for this buffer
+    pl_handle_types handle;      // handle type available for this buffer
     struct vk_slab **slabs;      // array of slabs sorted by size
     int num_slabs;
 };
@@ -102,8 +103,8 @@ static void slab_free(struct vk_ctx *vk, struct vk_slab *slab)
     vkDestroyBuffer(vk->dev, slab->buffer, VK_ALLOC);
 
 #ifdef VK_HAVE_UNIX
-    if (slab->handles.fd)
-        close(slab->handles.fd);
+    if (slab->handle_type == PL_HANDLE_FD && slab->handle.fd > -1)
+        close(slab->handle.fd);
 #endif
 
     // also implicitly unmaps the memory if needed
@@ -145,6 +146,9 @@ static struct vk_slab *slab_alloc(struct vk_malloc *ma, struct vk_heap *heap,
     struct vk_slab *slab = talloc_ptrtype(NULL, slab);
     *slab = (struct vk_slab) {
         .size = size,
+        .handle = {
+            .fd = -1,
+        }
     };
 
     TARRAY_APPEND(slab, slab->regions, slab->num_regions, (struct vk_region) {
@@ -157,12 +161,14 @@ static struct vk_slab *slab_alloc(struct vk_malloc *ma, struct vk_heap *heap,
         .handleTypes = 0,
     };
 
-    if (heap->handles & PL_HANDLE_FD)
+    if (heap->handle == PL_HANDLE_FD) {
         ext_info.handleTypes |= VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT_KHR;
+        slab->handle_type = PL_HANDLE_FD;
+    }
 
     VkMemoryAllocateInfo minfo = {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-        .pNext = heap->handles ? &ext_info : NULL,
+        .pNext = heap->handle ? &ext_info : NULL,
         .allocationSize = slab->size,
     };
 
@@ -213,14 +219,14 @@ static struct vk_slab *slab_alloc(struct vk_malloc *ma, struct vk_heap *heap,
         VK(vkBindBufferMemory(vk->dev, slab->buffer, slab->mem, 0));
 
 #ifdef VK_HAVE_UNIX
-    if (heap->handles & PL_HANDLE_FD) {
+    if (heap->handle == PL_HANDLE_FD) {
         VkMemoryGetFdInfoKHR fd_info = {
             .sType = VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR,
             .memory = slab->mem,
             .handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT_KHR,
         };
 
-        VK(vk->vkGetMemoryFdKHR(vk->dev, &fd_info, &slab->handles.fd));
+        VK(vk->vkGetMemoryFdKHR(vk->dev, &fd_info, &slab->handle.fd));
     }
 #endif
 
@@ -369,9 +375,11 @@ void vk_free_memslice(struct vk_malloc *ma, struct vk_memslice slice)
 // reqs: can be NULL
 static struct vk_heap *find_heap(struct vk_malloc *ma, VkBufferUsageFlags usage,
                                  VkMemoryPropertyFlags flags,
-                                 pl_handle_types handles,
+                                 pl_handle_types handle,
                                  VkMemoryRequirements *reqs)
 {
+    pl_assert((handle & (handle -1)) == 0);
+
     int typeBits = reqs ? reqs->memoryTypeBits : 0;
 
     for (int i = 0; i < ma->num_heaps; i++) {
@@ -381,7 +389,7 @@ static struct vk_heap *find_heap(struct vk_malloc *ma, VkBufferUsageFlags usage,
             continue;
         if (ma->heaps[i].typeBits != typeBits)
             continue;
-        if ((ma->heaps[i].handles & handles) != handles)
+        if (ma->heaps[i].handle != handle)
             continue;
         return &ma->heaps[i];
     }
@@ -393,7 +401,7 @@ static struct vk_heap *find_heap(struct vk_malloc *ma, VkBufferUsageFlags usage,
         .usage    = usage,
         .flags    = flags,
         .typeBits = typeBits,
-        .handles  = handles,
+        .handle  = handle,
     };
     return heap;
 }
@@ -478,8 +486,8 @@ static bool slice_heap(struct vk_malloc *ma, struct vk_heap *heap, size_t size,
         .vkmem = slab->mem,
         .offset = offset,
         .size = size,
-        .handles = {
-            .handle = slab->handles,
+        .handle = {
+            .handle = slab->handle,
             .offset = offset,
             .size = slab->size,
         },
@@ -498,19 +506,19 @@ static bool slice_heap(struct vk_malloc *ma, struct vk_heap *heap, size_t size,
 }
 
 bool vk_malloc_generic(struct vk_malloc *ma, VkMemoryRequirements reqs,
-                       VkMemoryPropertyFlags flags, pl_handle_types ext_handles,
+                       VkMemoryPropertyFlags flags, pl_handle_types ext_handle,
                        struct vk_memslice *out)
 {
-    struct vk_heap *heap = find_heap(ma, 0, flags, ext_handles, &reqs);
+    struct vk_heap *heap = find_heap(ma, 0, flags, ext_handle, &reqs);
     return slice_heap(ma, heap, reqs.size, reqs.alignment, out);
 }
 
 bool vk_malloc_buffer(struct vk_malloc *ma, VkBufferUsageFlags bufFlags,
                       VkMemoryPropertyFlags memFlags, VkDeviceSize size,
-                      VkDeviceSize alignment, pl_handle_types ext_handles,
+                      VkDeviceSize alignment, pl_handle_types ext_handle,
                       struct vk_bufslice *out)
 {
-    struct vk_heap *heap = find_heap(ma, bufFlags, memFlags, ext_handles, NULL);
+    struct vk_heap *heap = find_heap(ma, bufFlags, memFlags, ext_handle, NULL);
     if (!slice_heap(ma, heap, size, alignment, &out->mem))
         return false;
 

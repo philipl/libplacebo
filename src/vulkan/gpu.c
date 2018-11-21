@@ -729,7 +729,7 @@ static const struct pl_tex *vk_tex_create(const struct pl_gpu *gpu,
     vkGetImageMemoryRequirements(vk->dev, tex_vk->img, &reqs);
 
     struct vk_memslice *mem = &tex_vk->mem;
-    if (!vk_malloc_generic(p->alloc, reqs, memFlags, params->ext_handles, mem))
+    if (!vk_malloc_generic(p->alloc, reqs, memFlags, params->ext_handle, mem))
         goto error;
 
     VK(vkBindImageMemory(vk->dev, tex_vk->img, mem->vkmem, mem->offset));
@@ -737,8 +737,8 @@ static const struct pl_tex *vk_tex_create(const struct pl_gpu *gpu,
     if (!vk_init_image(gpu, tex))
         goto error;
 
-    if (params->ext_handles) {
-        tex->handles = tex_vk->mem.handles;
+    if (params->ext_handle) {
+        tex->handle = tex_vk->mem.handle;
         // Texture is not initially exported;
         // pl_vulkan_hold must be used to export it.
     }
@@ -1262,14 +1262,14 @@ static const struct pl_buf *vk_buf_create(const struct pl_gpu *gpu,
     }
 
     if (!vk_malloc_buffer(p->alloc, bufFlags, memFlags, params->size, align,
-                          params->ext_handles, &buf_vk->slice))
+                          params->ext_handle, &buf_vk->slice))
         goto error;
 
     if (params->host_mapped)
         buf->data = buf_vk->slice.data;
 
-    if (params->ext_handles) {
-        buf->handles = buf_vk->slice.mem.handles;
+    if (params->ext_handle) {
+        buf->handle = buf_vk->slice.mem.handle;
         buf_vk->exported = true;
     }
 

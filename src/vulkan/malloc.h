@@ -33,13 +33,13 @@ struct vk_memslice {
     VkDeviceMemory vkmem;
     VkDeviceSize offset;
     VkDeviceSize size;
-    struct pl_gpu_mem_handle handles;
+    struct pl_gpu_mem_handle handle;
     void *priv;
 };
 
 void vk_free_memslice(struct vk_malloc *ma, struct vk_memslice slice);
 bool vk_malloc_generic(struct vk_malloc *ma, VkMemoryRequirements reqs,
-                       VkMemoryPropertyFlags flags, pl_handle_types ext_handles,
+                       VkMemoryPropertyFlags flags, pl_handle_types ext_handle,
                        struct vk_memslice *out);
 
 // Represents a single "slice" of a larger buffer
@@ -57,5 +57,5 @@ struct vk_bufslice {
 // of two.
 bool vk_malloc_buffer(struct vk_malloc *ma, VkBufferUsageFlags bufFlags,
                       VkMemoryPropertyFlags memFlags, VkDeviceSize size,
-                      VkDeviceSize alignment, pl_handle_types ext_handles,
+                      VkDeviceSize alignment, pl_handle_types ext_handle,
                       struct vk_bufslice *out);
