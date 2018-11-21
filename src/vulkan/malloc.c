@@ -401,7 +401,7 @@ static struct vk_heap *find_heap(struct vk_malloc *ma, VkBufferUsageFlags usage,
         .usage    = usage,
         .flags    = flags,
         .typeBits = typeBits,
-        .handle  = handle,
+        .handle   = handle,
     };
     return heap;
 }
@@ -486,7 +486,7 @@ static bool slice_heap(struct vk_malloc *ma, struct vk_heap *heap, size_t size,
         .vkmem = slab->mem,
         .offset = offset,
         .size = size,
-        .handle = {
+        .mem_handle = {
             .handle = slab->handle,
             .offset = offset,
             .size = slab->size,

@@ -738,7 +738,7 @@ static const struct pl_tex *vk_tex_create(const struct pl_gpu *gpu,
         goto error;
 
     if (params->ext_handle) {
-        tex->handle = tex_vk->mem.handle;
+        tex->handle = tex_vk->mem.mem_handle;
         // Texture is not initially exported;
         // pl_vulkan_hold must be used to export it.
     }
@@ -1269,7 +1269,7 @@ static const struct pl_buf *vk_buf_create(const struct pl_gpu *gpu,
         buf->data = buf_vk->slice.data;
 
     if (params->ext_handle) {
-        buf->handle = buf_vk->slice.mem.handle;
+        buf->handle = buf_vk->slice.mem.mem_handle;
         buf_vk->exported = true;
     }
 
